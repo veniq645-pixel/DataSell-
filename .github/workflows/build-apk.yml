@@ -14,27 +14,68 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Java (JDK 17)
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Install system dependencies
+      - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y wget unzip imagemagick
 
-      - name: Setup Android SDK (Simple method)
+      - name: Use pre-installed Android SDK
         run: |
-          # Use pre-installed Android SDK on GitHub Actions
+          # GitHub Actions already has Android SDK installed
           echo "ANDROID_SDK_ROOT=/usr/local/lib/android/sdk" >> $GITHUB_ENV
           echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> $GITHUB_ENV
+          echo "/usr/local/lib/android/sdk/platform-tools" >> $GITHUB_PATH
+          echo "/usr/local/lib/android/sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
           
-          # Install required SDK components
+          # Accept licenses
+          yes | /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          
+          # Install needed packages
           /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager \
-            "platform-tools" \
-            "platforms;android-33" \
+            "platforms;android-33" "build-tools;33.0.2"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Run your build-apk.sh script
+        working-directory: ./android-wrapper
+        env:
+          ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+          ANDROID_HOME: /usr/local/lib/android/sdk
+        run: |
+          # Make your script executable
+          chmod +x build-apk.sh
+          
+          # Run it with debug output
+          echo "=== Running your build script ==="
+          ./build-apk.sh
+          
+          # Check result
+          if [ $? -eq 0 ]; then
+            echo "✅ Build script completed successfully"
+            # Look for APK
+            find . -name "*.apk" -type f | head -5
+          else
+            echo "❌ Build script failed"
+            exit 1
+          fi
+
+      - name: Upload any APK found
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: |
+            ./android-wrapper/platforms/android/app/build/outputs/apk/**/*.apk
+            ./android-wrapper/*.apk
+          if-no-files-found: warn            "platforms;android-33" \
             "build-tools;33.0.2" \
             "platforms;android-31" \
             "build-tools;31.0.0"
