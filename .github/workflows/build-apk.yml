@@ -11,53 +11,50 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout code
+      # 1️⃣ Checkout repository
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # Java 17 (required for new Android SDK)
+      # 2️⃣ Setup Java 17
       - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: '17'
 
-      # Install system tools
-      - name: Install Dependencies
+      # 3️⃣ Install system dependencies
+      - name: Install System Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y wget unzip imagemagick
 
-      # Install & configure Android SDK
+      # 4️⃣ Setup Android SDK
       - name: Setup Android SDK
         run: |
           mkdir -p $HOME/android-sdk
           cd /tmp
-
-          # Download cmdline tools
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
           unzip -q commandlinetools-linux-11076708_latest.zip
-
           mkdir -p $HOME/android-sdk/cmdline-tools
           mv cmdline-tools $HOME/android-sdk/cmdline-tools/latest
-
           echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
-
           mkdir -p $HOME/.android
-      touch $HOME/.android/repositories.cfg
-      
-    - name: Install Gradle 7.5.1
-  run: |
-    wget https://services.gradle.org/distributions/gradle-7.5.1-bin.zip
-    unzip -q gradle-7.5.1-bin.zip
-    echo "GRADLE_HOME=$PWD/gradle-7.5.1" >> $GITHUB_ENV
-    echo "$PWD/gradle-7.5.1/bin" >> $GITHUB_PATH
-      # Accept licenses
-      - name: Accept Licenses
+          touch $HOME/.android/repositories.cfg
+
+      # 5️⃣ Install Gradle 7.5.1 (Cordova-Android 11 compatible)
+      - name: Install Gradle 7.5.1
+        run: |
+          wget https://services.gradle.org/distributions/gradle-7.5.1-bin.zip
+          unzip -q gradle-7.5.1-bin.zip
+          echo "GRADLE_HOME=$PWD/gradle-7.5.1" >> $GITHUB_ENV
+          echo "$PWD/gradle-7.5.1/bin" >> $GITHUB_PATH
+
+      # 6️⃣ Accept Android licenses
+      - name: Accept Android SDK Licenses
         run: |
           yes | sdkmanager --sdk_root=$HOME/android-sdk --licenses
 
-      # Install platform tools + build tools
+      # 7️⃣ Install Android platform-tools & build-tools
       - name: Install Android SDK Components
         run: |
           sdkmanager --sdk_root=$HOME/android-sdk \
@@ -65,7 +62,7 @@ jobs:
             "build-tools;33.0.2" \
             "platforms;android-33"
 
-      # Export Android paths
+      # 8️⃣ Export Android environment variables
       - name: Export Android Paths
         run: |
           echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
@@ -73,55 +70,57 @@ jobs:
           echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
           echo "$HOME/android-sdk/build-tools/33.0.2" >> $GITHUB_PATH
 
-      # Install Node
-      - name: Setup Node
+      # 9️⃣ Setup Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 18
 
-      # Install Cordova
+      # 🔟 Install Cordova globally
       - name: Install Cordova
         run: npm install -g cordova
 
-      # Install project dependencies
+      # 1️⃣1️⃣ Install project dependencies
       - name: Install Project Dependencies
         working-directory: ./android-wrapper
         run: npm install
 
-      # Copy "public" to "www" + generate icons
+      # 1️⃣2️⃣ Prepare web assets and generate icons
       - name: Prepare Web Assets
         working-directory: ./android-wrapper
         run: |
           rm -rf www
           cp -r ../public www
-
           mkdir -p www/images
 
           if [ -f "../public/images/web-logo2.png" ]; then
-            echo "Generating icons..."
+            echo "Generating Android icons..."
             convert ../public/images/web-logo2.png -resize 36x36 www/images/web-logo2-36.png
             convert ../public/images/web-logo2.png -resize 48x48 www/images/web-logo2-48.png
             convert ../public/images/web-logo2.png -resize 72x72 www/images/web-logo2-72.png
             convert ../public/images/web-logo2.png -resize 96x96 www/images/web-logo2-96.png
+            convert ../public/images/web-logo2.png -resize 144x144 www/images/web-logo2-144.png
+            convert ../public/images/web-logo2.png -resize 192x192 www/images/web-logo2-192.png
+            convert ../public/images/web-logo2.png -resize 192x192 www/images/icon.png
           else
-            echo "ERROR: Logo not found at public/images/web-logo2.png"
+            echo "WARNING: Logo not found at ../public/images/web-logo2.png"
           fi
 
-      # Add Android platform
+      # 1️⃣3️⃣ Add Android platform
       - name: Add Android Platform
         working-directory: ./android-wrapper
         run: |
           rm -rf platforms/android || true
           cordova platform add android@11.0.0
 
-      # Build APK
+      # 1️⃣4️⃣ Build APK
       - name: Build APK
         working-directory: ./android-wrapper
         run: |
           cordova build android --debug
           ls -R platforms/android/app/build/outputs/apk/
 
-      # Upload APK artifact
+      # 1️⃣5️⃣ Upload APK artifact
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
