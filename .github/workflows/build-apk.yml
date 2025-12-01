@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout the repo
+      # 1. Checkout repository
       - name: Checkout Repository
         uses: actions/checkout@v4
 
@@ -19,10 +19,10 @@ jobs:
       - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
-          distribution: temurin
-          java-version: 17
+          distribution: 'temurin'
+          java-version: '17'
 
-      # 3. Install system dependencies
+      # 3. Install system tools
       - name: Install Dependencies
         run: |
           sudo apt-get update
@@ -41,19 +41,19 @@ jobs:
           mkdir -p $HOME/.android
           touch $HOME/.android/repositories.cfg
 
-      # 5. Accept licenses
-      - name: Accept Android Licenses
+      # 5. Accept Android licenses
+      - name: Accept Licenses
         run: yes | sdkmanager --sdk_root=$HOME/android-sdk --licenses
 
-      # 6. Install SDK components
-      - name: Install SDK Components
+      # 6. Install Android SDK components
+      - name: Install Android SDK Components
         run: |
           sdkmanager --sdk_root=$HOME/android-sdk \
             "platform-tools" \
             "build-tools;33.0.2" \
             "platforms;android-33"
 
-      # 7. Export Android environment variables
+      # 7. Export Android paths
       - name: Export Android Paths
         run: |
           echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
@@ -61,7 +61,7 @@ jobs:
           echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
           echo "$HOME/android-sdk/build-tools/33.0.2" >> $GITHUB_PATH
 
-      # 8. Setup Node.js
+      # 8. Setup Node
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -93,22 +93,25 @@ jobs:
             echo "ERROR: Logo not found at public/images/web-logo2.png"
           fi
 
-      # 12. Add Android Platform
+      # 12. Add Android platform (force Cordova-Android 11)
       - name: Add Android Platform
         working-directory: ./android-wrapper
         run: |
           rm -rf platforms/android || true
           cordova platform add android@11.0.0
 
-      # 13. Build APK
+      # 13. Force Gradle 7.5.1 for compatibility
+      - name: Setup Gradle Wrapper
+        working-directory: ./android-wrapper/platforms/android
+        run: ./gradlew wrapper --gradle-version 7.5.1
+
+      # 14. Build APK
       - name: Build APK
         working-directory: ./android-wrapper
-        run: |
-          cordova build android --debug --no-telemetry
-          ls -R platforms/android/app/build/outputs/apk/
+        run: ./platforms/android/gradlew cdvBuildDebug --no-telemetry
 
-      # 14. Upload APK
-      - name: Upload APK Artifact
+      # 15. Upload APK artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: app-debug.apk
