@@ -12,8 +12,8 @@ jobs:
 
     env:
       JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
-      ANDROID_SDK_ROOT: ${{ runner.tool_cache }}/android-sdk
-      PATH: ${{ runner.tool_cache }}/android-sdk/cmdline-tools/latest/bin:${{ runner.tool_cache }}/android-sdk/platform-tools:${{ runner.tool_cache }}/gradle/gradle-7.5.1/bin:$PATH
+      ANDROID_SDK_ROOT: $HOME/android-sdk
+      PATH: $HOME/gradle/gradle-7.5.1/bin:$HOME/android-sdk/cmdline-tools/latest/bin:$HOME/android-sdk/platform-tools:$PATH
 
     steps:
     - name: Checkout repo
@@ -24,36 +24,37 @@ jobs:
       with:
         node-version: '18'
 
-    - name: Install Cordova & Gradle
+    - name: Install Cordova
+      run: npm install -g cordova@11.0.0
+
+    - name: Install Gradle 7.5.1
       run: |
-        npm install -g cordova
         curl -sSL https://services.gradle.org/distributions/gradle-7.5.1-bin.zip -o gradle-7.5.1-bin.zip
         unzip -qq gradle-7.5.1-bin.zip -d $HOME/gradle
-        echo "$HOME/gradle/gradle-7.5.1/bin" >> $GITHUB_PATH
 
     - name: Setup Android SDK
       run: |
-        mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
+        mkdir -p $ANDROID_SDK_ROOT/cmdline-tools/latest
         curl -sSL https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -o cmdline-tools.zip
-        unzip -qq cmdline-tools.zip -d $ANDROID_SDK_ROOT/cmdline-tools
-        yes | $ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools/bin/sdkmanager --licenses
-        $ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools/bin/sdkmanager "platform-tools" "platforms;android-32" "build-tools;32.0.0"
+        unzip -qq cmdline-tools.zip -d $ANDROID_SDK_ROOT/cmdline-tools/latest
+        yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses
+        $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-32" "build-tools;32.0.0"
 
-    - name: Create Cordova project (if needed)
-      run: |
-        if [ ! -f config.xml ]; then
-          cordova create . com.datasell.app DataSellApp
-        fi
-
-    - name: Add Android platform
+    - name: Remove old Android platform
       run: |
         cordova platform remove android || true
-        cordova platform add android@10.1.1
 
-    - name: Build Android APK
+    - name: Add Android platform 10.1.1
+      run: cordova platform add android@10.1.1
+
+    - name: Force Gradle 7.5.1 in project
       run: |
-        cordova build android --debug --no-telemetry
+        cd platforms/android
+        ./gradlew wrapper --gradle-version 7.5.1
+        cd ../..
+
+    - name: Build APK
+      run: cordova build android --debug --no-telemetry
 
     - name: List APK outputs
-      run: |
-        ls -R platforms/android/app/build/outputs/apk/
+      run: ls -R platforms/android/app/build/outputs/apk/
